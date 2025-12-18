@@ -32,15 +32,15 @@ stages:
       displayName: Login to DockerHub
 
     - script: |
-        docker build \
-          -f $(dockerfilePath) \
-          -t $(imageName):$(tag) \
-          -t $(imageName):latest \
-          $(contextPath)
+    docker build \
+      -f default-deployment/frontend/Dockerfile \
+      -t $(imageName):$(tag) \
+      -t $(imageName):latest \
+      default-deployment/frontend
 
-        docker push $(imageName):$(tag)
-        docker push $(imageName):latest
-      displayName: Build and Push Image
+    docker push $(imageName):$(tag)
+    docker push $(imageName):latest
+  displayName: Build and Push Docker image
 
 # ----------------------------------
 # Stage 2: Update Git for Argo CD
