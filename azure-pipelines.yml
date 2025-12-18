@@ -26,8 +26,8 @@ stages:
     - checkout: self
 
     - script: |
-        echo "$(dh-password)" | docker login \
-          -u "$(dh-username)" \
+        echo "$(DH_PASSWORD)" | docker login \
+          -u "$(DH_USERNAME)" \
           --password-stdin
       displayName: Login to DockerHub
 
