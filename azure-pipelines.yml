@@ -1,0 +1,68 @@
+trigger:
+  branches:
+    include:
+      - main
+      - master
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  imageName: molnarimi0211/argopractice
+  dockerfilePath: frontend/Dockerfile
+  contextPath: frontend
+  tag: $(Build.SourceVersion)
+
+stages:
+# ---------------------------
+# Stage 1: Build & Push Image
+# ---------------------------
+- stage: BuildAndPush
+  displayName: Build and Push Docker Image
+  jobs:
+  - job: Docker
+    displayName: Docker Build
+    steps:
+    - checkout: self
+
+    - script: |
+        echo "$(DH_PASSWORD)" | docker login \
+          -u "$(DH_USERNAME)" \
+          --password-stdin
+      displayName: Login to DockerHub
+
+    - script: |
+        docker build \
+          -f $(dockerfilePath) \
+          -t $(imageName):$(tag) \
+          -t $(imageName):latest \
+          $(contextPath)
+
+        docker push $(imageName):$(tag)
+        docker push $(imageName):latest
+      displayName: Build and Push Image
+
+# ----------------------------------
+# Stage 2: Update Git for Argo CD
+# ----------------------------------
+- stage: UpdateManifests
+  displayName: Update Kubernetes manifests
+  dependsOn: BuildAndPush
+  jobs:
+  - job: GitUpdate
+    displayName: Commit new image tag
+    steps:
+    - checkout: self
+      persistCredentials: true
+
+    - script: |
+        sed -i "s|__IMAGE_TAG__|$(tag)|g" k8s/4-frontend.yaml
+      displayName: Update image tag in manifest
+
+    - script: |
+        git config user.name "azure-devops"
+        git config user.email "ci@azuredevops"
+        git add k8s/4-frontend.yaml
+        git commit -m "chore: update frontend image to $(tag)"
+        git push
+      displayName: Commit and push changes
