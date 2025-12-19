@@ -3,3 +3,4 @@ terraform/**/*.tf
 terraform/**/*.tfstate
 terraform/**/*.tfstate.*
 terraform/**/*.tfvars
+pipeline-backup.yaml
