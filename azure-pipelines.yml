@@ -1,22 +1,24 @@
 trigger:
   branches:
     include:
-      - main
       - master
+  paths:
+    exclude:
+      - k8s/*
 
 pool:
-  vmImage: ubuntu-latest
+  vmImage: ubuntu-22.04
 
 variables:
   imageName: molnarimi0211/argopractice
-  dockerfilePath: frontend/Dockerfile
-  contextPath: frontend
+  dockerfilePath: default-deployment/frontend/Dockerfile
+  contextPath: default-deployment/frontend
   tag: $(Build.SourceVersion)
 
 stages:
-# ---------------------------
-# Stage 1: Build & Push Image
-# ---------------------------
+# -----------------------------------
+# Stage 1: Build & Push Docker Image
+# -----------------------------------
 - stage: BuildAndPush
   displayName: Build and Push Docker Image
   jobs:
@@ -29,25 +31,26 @@ stages:
         echo "$(DH_PASSWORD)" | docker login \
           -u "$(DH_USERNAME)" \
           --password-stdin
-      displayName: Login to DockerHub
+      displayName: Login to Docker Hub
 
     - script: |
-    docker build \
-      -f default-deployment/frontend/Dockerfile \
-      -t $(imageName):$(tag) \
-      -t $(imageName):latest \
-      default-deployment/frontend
+        docker build \
+          -f $(dockerfilePath) \
+          -t $(imageName):$(tag) \
+          -t $(imageName):latest \
+          $(contextPath)
 
-    docker push $(imageName):$(tag)
-    docker push $(imageName):latest
-  displayName: Build and Push Docker image
+        docker push $(imageName):$(tag)
+        docker push $(imageName):latest
+      displayName: Build and Push Docker image
 
-# ----------------------------------
-# Stage 2: Update Git for Argo CD
-# ----------------------------------
+# -----------------------------------
+# Stage 2: Update Kubernetes Manifests
+# -----------------------------------
 - stage: UpdateManifests
   displayName: Update Kubernetes manifests
   dependsOn: BuildAndPush
+  condition: succeeded()
   jobs:
   - job: GitUpdate
     displayName: Commit new image tag
@@ -62,7 +65,14 @@ stages:
     - script: |
         git config user.name "azure-devops"
         git config user.email "ci@azuredevops"
+
         git add k8s/4-frontend.yaml
+
+        if git diff --cached --quiet; then
+          echo "No manifest changes to commit"
+          exit 0
+        fi
+
         git commit -m "chore: update frontend image to $(tag)"
         git push
       displayName: Commit and push changes
